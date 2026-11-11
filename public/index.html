@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Award Status Check | LEAP</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg: #f3f5f8; --card: #ffffff; --ink: #14202e; --muted: #5a6778; --line: #e2e7ee; --soft: #f6f8fb;
+    --brand: #0f2f52; --brand-2: #1b4f86; --accent: #1f6fd1; --accent-soft: #e7f0fc; --on-accent: #ffffff;
+    --ok: #1d7a4e; --ok-soft: #e4f4ec; --warn: #8a5a00; --warn-soft: #fff4dc;
+    --closed: #5a6778; --closed-soft: #eef1f5; --shadow: 0 1px 2px rgba(16,32,56,.06), 0 8px 24px rgba(16,32,56,.08);
+    --radius: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d131b; --card: #151e29; --ink: #e8eef5; --muted: #9aa8b8; --line: #263243; --soft: #1a2532;
+      --brand: #0a1f38; --brand-2: #143a63; --accent: #6aa8f0; --accent-soft: #1a2e48; --on-accent: #0b1420;
+      --ok: #5cc690; --ok-soft: #15301f; --warn: #f0c56a; --warn-soft: #33290f;
+      --closed: #9aa8b8; --closed-soft: #1f2a37; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 0 16px; }
+
+  /* Header band */
+  .band { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%); color: #fff; padding: 28px 0 96px; }
+  .brandline { display: flex; align-items: center; gap: 10px; font-size: 14px; letter-spacing: .04em; opacity: .92; }
+  .mark { padding: 5px 8px; border-radius: 8px; background: rgba(255,255,255,.14); font-weight: 800; font-size: 12px; letter-spacing: .06em; }
+  .band h1 { font-size: 34px; line-height: 1.15; margin: 28px 0 8px; letter-spacing: -.01em; }
+  .band p { margin: 0; max-width: 560px; color: rgba(255,255,255,.84); font-size: 17px; }
+
+  /* Cards and lookup */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .lookup { margin-top: -64px; padding: 24px; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr auto; gap: 14px; align-items: end; }
+  label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+  .hint { color: var(--muted); font-weight: 400; }
+  input { width: 100%; font: inherit; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--soft); color: var(--ink); transition: border-color .15s, box-shadow .15s; }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
+  button.primary { font: inherit; font-weight: 650; padding: 0 22px; border: 0; border-radius: 10px; cursor: pointer;
+    background: var(--accent); color: var(--on-accent); white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; height: 48px; }
+  button.primary:hover { filter: brightness(1.06); }
+  button.primary:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+  button.primary[disabled] { opacity: .75; cursor: wait; }
+  .spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+    animation: spin .7s linear infinite; display: none; }
+  button[disabled] .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .privacy { margin: 14px 0 0; color: var(--muted); font-size: 13px; }
+
+  /* Results */
+  #results { margin-top: 28px; }
+  .results-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 4px 12px; }
+  .results-head h2 { font-size: 20px; margin: 0; outline: none; }
+  .results-head span { color: var(--muted); font-size: 14px; }
+  .award { padding: 24px; margin-bottom: 16px; }
+  .award-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+  .award-name { font-size: 22px; font-weight: 700; margin: 4px 0 0; line-height: 1.25; }
+  .meta { color: var(--muted); font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chip { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); }
+  .pill { flex-shrink: 0; font-size: 13px; font-weight: 650; padding: 6px 12px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px; }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pill.progress { background: var(--accent-soft); color: var(--accent); }
+  .pill.action { background: var(--accent); color: var(--on-accent); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.closed { background: var(--closed-soft); color: var(--closed); }
+
+  .progress-label { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin: 22px 0 8px; font-size: 14px; color: var(--muted); }
+  .progress-label strong { color: var(--ink); }
+  .segments { display: grid; gap: 4px; }
+  .seg { height: 8px; border-radius: 4px; background: var(--line); }
+  .seg.done { background: var(--ok); }
+  .seg.current { background: var(--accent); position: relative; overflow: hidden; }
+  .seg.current::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent);
+    animation: shimmer 2.2s ease-in-out infinite; }
+  @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+  @media (prefers-reduced-motion: reduce) { .seg.current::after, .spinner { animation: none; } }
+
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+  .tile { background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .tile.you { background: var(--accent-soft); border-color: transparent; }
+  .tile h3 { margin: 0 0 6px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .tile .big { font-size: 18px; font-weight: 700; margin: 0 0 4px; line-height: 1.3; }
+  .tile .small { font-size: 13.5px; color: var(--muted); margin: 0; }
+  .notice { margin: 16px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 14.5px; }
+  .message { margin: 18px 0 0; padding: 16px; border-radius: 12px; background: var(--soft); border: 1px solid var(--line); }
+  .message .big { font-size: 18px; font-weight: 700; margin: 0 0 4px; color: var(--ink); }
+  .message p { margin: 0; color: var(--muted); }
+
+  details.steps { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+  details.steps summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--accent); list-style: none; display: inline-block; }
+  details.steps summary::-webkit-details-marker { display: none; }
+  details.steps summary::after { content: " +"; }
+  details.steps[open] summary::after { content: " \2212"; }
+  ol.timeline { list-style: none; padding: 0; margin: 14px 0 0; }
+  ol.timeline li { display: grid; grid-template-columns: 24px 1fr; gap: 12px; position: relative; padding-bottom: 12px; }
+  ol.timeline li:not(:last-child)::before { content: ""; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: var(--line); }
+  ol.timeline li.done:not(:last-child)::before { background: var(--ok); }
+  .dot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); background: var(--card);
+    display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+  li.done .dot { background: var(--ok); border-color: var(--ok); color: #fff; }
+  li.current .dot { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .step-name { padding-top: 1px; font-size: 15px; }
+  li.current .step-name { font-weight: 700; }
+  li.todo .step-name { color: var(--muted); }
+
+  /* Earlier awards */
+  .earlier-title { font-size: 14px; color: var(--muted); font-weight: 650; text-transform: uppercase; letter-spacing: .05em; margin: 28px 4px 10px; }
+  details.older { margin-bottom: 10px; }
+  details.older > summary { list-style: none; cursor: pointer; padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-radius: var(--radius); }
+  details.older > summary::-webkit-details-marker { display: none; }
+  details.older > summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+  details.older > summary .name { font-weight: 650; flex: 1; min-width: 0; }
+  details.older > summary .meta { font-weight: 400; margin-top: 2px; }
+  .chev { width: 9px; height: 9px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg);
+    transition: transform .15s; margin: 0 4px 4px; flex-shrink: 0; }
+  details.older[open] .chev { transform: rotate(-135deg); margin-bottom: 0; }
+  details.older .older-body { padding: 0 20px 20px; border-top: 1px solid var(--line); }
+
+  /* Company overview */
+  .overview { padding: 24px; margin-bottom: 28px; }
+  .overview h2 { margin: 0 0 18px; font-size: 24px; outline: none; }
+  .ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .ov-tile { border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+  .ov-tile h3 { margin: 0; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .ov-big { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .ov-big strong { font-size: 40px; line-height: 1; }
+  .ov-big .word { font-size: 26px; font-weight: 700; line-height: 1.15; color: var(--ink); }
+  .ov-big span { color: var(--muted); font-size: 15px; }
+  .ov-tile p { margin: 0; font-size: 14px; color: var(--muted); }
+  .scale-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  .scale-steps li { display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--muted); min-width: 0; }
+  .scale-steps li span:first-child { height: 8px; border-radius: 4px; background: var(--line); }
+  .scale-steps li.done span:first-child { background: var(--ok); }
+  .scale-steps li.current span:first-child { background: var(--accent); }
+  .scale-steps li.current { color: var(--ink); font-weight: 700; }
+  .scale-steps li span:last-child { white-space: nowrap; }
+  .scale-steps li:not(.current) span:last-child { visibility: hidden; }
+  .prog-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .prog-list li { display: flex; flex-direction: column; gap: 1px; font-size: 14.5px; line-height: 1.4; }
+  .prog-list li span:last-child { color: var(--muted); font-size: 13px; }
+  .prog-list li[hidden] { display: none; }
+  button.link, button.outline { font: inherit; font-weight: 600; font-size: 14.5px; cursor: pointer; color: var(--accent); background: none; }
+  button.link { border: 0; padding: 0; align-self: flex-start; }
+  button.outline { border: 1px solid var(--accent); border-radius: 10px; min-height: 44px; padding: 0 14px; margin-top: auto; }
+  button.link:focus-visible, button.outline:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+  .tp-details { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+  .tp-details[hidden] { display: none; }
+  .tp-details h3 { margin: 0 0 10px; font-size: 16px; }
+  .tp-details p.lead { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 14.5px; }
+  table.tp { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  table.tp th { text-align: left; font-size: 12.5px; color: var(--muted); font-weight: 600; padding: 6px 0; }
+  table.tp td { padding: 9px 0; border-top: 1px solid var(--line); }
+  table.tp .num { text-align: right; }
+  table.tp tr.total td { border-top: 2px solid var(--ink); font-weight: 700; }
+  ul.tp-list { list-style: none; margin: 0 0 10px; padding: 0; }
+  ul.tp-list li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14.5px; }
+  ul.tp-list li span:last-child { color: var(--muted); white-space: nowrap; }
+  ul.tp-list li[hidden] { display: none; }
+  .awards-title { font-size: 20px; margin: 0; }
+
+  .empty { padding: 20px; }
+  .empty .notice { margin: 0; }
+  .contact { margin: 20px 4px 0; font-size: 14px; color: var(--muted); }
+  footer { margin: 36px 4px 48px; color: var(--muted); font-size: 13px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  @media (max-width: 680px) {
+    .band { padding: 22px 0 88px; }
+    .band h1 { font-size: 27px; margin-top: 22px; }
+    .band p { font-size: 16px; }
+    .fields { grid-template-columns: 1fr; }
+    button.primary { width: 100%; justify-content: center; }
+    .lookup, .award { padding: 18px; }
+    .award-top { flex-direction: column-reverse; gap: 10px; }
+    .award-name { font-size: 20px; }
+    .tiles { grid-template-columns: 1fr; }
+    details.older > summary { flex-wrap: wrap; padding: 14px 16px; }
+    details.older > summary .name { flex-basis: calc(100% - 30px); }
+    details.older .older-body { padding: 0 16px 16px; }
+    .overview { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+<header class="band">
+  <div class="wrap">
+    <div class="brandline"><span class="mark" aria-hidden="true">LEAP</span><span>Small Business Support</span></div>
+    <h1>Check your award status</h1>
+    <p>See where your award stands, the programs you've joined, your SCALE stage and your touchpoints with LEAP.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card lookup" aria-labelledby="lookup-title">
+    <h2 id="lookup-title" class="sr">Look up your award</h2>
+    <form id="lookup" novalidate>
+      <div class="fields">
+        <div>
+          <label for="company">Company name</label>
+          <input id="company" name="company" autocomplete="organization" required maxlength="200">
+        </div>
+        <div>
+          <label for="email">Email <span class="hint">(the one you applied with)</span></label>
+          <input id="email" name="email" type="email" autocomplete="email" required maxlength="200">
+        </div>
+        <button type="submit" id="go" class="primary"><span class="spinner" aria-hidden="true"></span><span class="label">Check status</span></button>
+      </div>
+    </form>
+    <p class="privacy">We only show results when the company name and email both match our records.</p>
+  </section>
+
+  <div id="results" aria-live="polite"></div>
+
+  <footer>Estimates are based on how long recent awards took at each step. They are a guide, not a promise.</footer>
+</main>
+
+<script>
+const API = '/api/status';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function monthYear(ymd) {
+  if (!ymd) return '';
+  const [y, m] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+function daysText(n) {
+  if (n <= 7) return n === 1 ? '1 day' : `${n} days`;
+  const w = Math.round(n / 7);
+  return w === 1 ? '1 week' : `${w} weeks`;
+}
+function rangeText(lo, hi) {
+  if (lo === 0) return `within ${daysText(hi)}`;
+  const a = daysText(lo), b = daysText(hi);
+  if (a === b) return `in about ${a}`;
+  const [an, au] = a.split(' '), [bn, bu] = b.split(' ');
+  return au.replace(/s$/, '') === bu.replace(/s$/, '') ? `in ${an} to ${bn} ${bu}` : `in ${a} to ${b}`;
+}
+
+function statusPill(a) {
+  const k = a.stage.kind;
+  if (k === 'done') return ['ok', 'Complete'];
+  if (k === 'closed') return ['closed', 'Closed'];
+  if (k === 'waitlist') return ['warn', 'Waitlist'];
+  if (a.waitingFor?.key === 'Applicant') return ['action', 'Action needed'];
+  if (a.nextStep?.overdue) return ['warn', 'Taking longer'];
+  return ['progress', 'In progress'];
+}
+const pillHtml = a => { const [cls, text] = statusPill(a); return `<span class="pill ${cls}">${text}</span>`; };
+const stepIndex = a => (a.stage.kind === 'done' || a.stage.kind === 'closeout') ? a.steps.length : a.currentStepIndex;
+
+function progressHtml(a) {
+  const total = a.steps.length, idx = stepIndex(a);
+  const label = idx >= total
+    ? `<span><strong>All ${total} steps done</strong></span>`
+    : `<span>Step <strong>${idx + 1} of ${total}</strong> &middot; ${esc(a.stage.publicName)}</span>`;
+  const since = a.inStageSinceDays !== null && idx < total
+    ? `<span>${a.inStageSinceDays === 0 ? 'Started today' : `In this step for ${daysText(a.inStageSinceDays)}`}</span>` : '';
+  const segs = a.steps.map((_, i) => `<span class="seg ${i < idx ? 'done' : i === idx ? 'current' : ''}"></span>`).join('');
+  return `<div class="progress-label">${label}${since}</div>
+    <div class="segments" style="grid-template-columns: repeat(${total}, 1fr)" role="img" aria-label="${idx >= total ? 'All steps complete' : `Step ${idx + 1} of ${total}`}">${segs}</div>`;
+}
+
+function stepsHtml(a) {
+  const total = a.steps.length, idx = stepIndex(a);
+  const items = a.steps.map((name, i) => {
+    const cls = i < idx ? 'done' : i === idx ? 'current' : 'todo';
+    const mark = cls === 'done' ? '&#10003;' : i + 1;
+    const label = cls === 'done' ? 'done' : cls === 'current' ? 'current step' : 'upcoming';
+    return `<li class="${cls}"><span class="dot" aria-hidden="true">${mark}</span><span class="step-name">${esc(name)} <span class="sr">(${label})</span></span></li>`;
+  }).join('');
+  return `<details class="steps"><summary>See all ${total} steps</summary><ol class="timeline">${items}</ol></details>`;
+}
+
+function bodyHtml(a) {
+  const k = a.stage.kind;
+  if (k === 'done') return progressHtml(a) + `<div class="message"><p class="big">Your award is complete</p><p>Thank you for working with LEAP.</p></div>` + stepsHtml(a);
+  if (k === 'closed') return `<div class="message"><p class="big">This application is closed</p><p>${esc(a.stage.description)}</p></div>`;
+  if (k === 'waitlist') return `<div class="message"><p class="big">You're on the waitlist</p><p>${esc(a.stage.description)} We can't give a time estimate while you're on the waitlist.</p></div>`;
+
+  let tiles = '';
+  if (a.waitingFor) {
+    const you = a.waitingFor.key === 'Applicant';
+    tiles += `<div class="tile ${you ? 'you' : ''}"><h3>Waiting on</h3><p class="big">${esc(a.waitingFor.label)}</p><p class="small">${esc(a.waitingFor.message)}</p></div>`;
+  }
+  if (a.nextStep) {
+    const head = `<h3>Next: ${esc(a.nextStep.name)}</h3>`;
+    const typical = `<p class="small">${esc(a.stage.publicName)} usually takes about ${daysText(a.nextStep.typicalStageDays)}.</p>`;
+    tiles += a.nextStep.overdue
+      ? `<div class="tile">${head}<p class="big">Taking longer than usual</p>${typical}</div>`
+      : `<div class="tile">${head}<p class="big">Usually ${rangeText(a.nextStep.lowDays, a.nextStep.highDays)}</p>${typical}</div>`;
+  } else if (k === 'closeout') {
+    tiles += `<div class="tile"><h3>Next</h3><p class="big">Closeout</p><p class="small">Once we have the remaining items, your award is complete.</p></div>`;
+  }
+  if (a.completion) {
+    tiles += `<div class="tile"><h3>Estimated completion</h3><p class="big">Around ${esc(monthYear(a.completion.approxDate + '-01'))}</p><p class="small">Based on typical times for the remaining steps.</p></div>`;
+  }
+  return progressHtml(a)
+    + (tiles ? `<div class="tiles">${tiles}</div>` : '')
+    + (a.note ? `<p class="notice">${esc(a.note)}</p>` : '')
+    + stepsHtml(a);
+}
+
+function metaHtml(a, showLatest) {
+  const bits = [];
+  if (showLatest) bits.push('<span class="chip">Most recent</span>');
+  if (a.startedOn) bits.push(`<span>Started ${esc(monthYear(a.startedOn))}</span>`);
+  return bits.length ? `<div class="meta">${bits.join('')}</div>` : '';
+}
+
+// ---------- Company overview ----------
+const TYPE_LABELS = { meeting: 'Meeting', call: 'Phone call', email: 'Email' };
+function shortDate(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d || 1).toLocaleDateString('en-US', d ? { month: 'short', day: 'numeric', year: 'numeric' } : { month: 'short', year: 'numeric' });
+}
+
+function touchpointTile(tp) {
+  if (!tp) return '';
+  const since = tp.since ? `since ${esc(monthYear(tp.since + '-01'))}` : '';
+  return `<div class="ov-tile"><h3>Touchpoints with LEAP</h3>
+    <div class="ov-big"><strong>${tp.total}</strong><span>${since}</span></div>
+    <p>Includes meetings, calls and emails, deduplicated. ${tp.last12} in the past 12 months.</p>
+    ${tp.total ? `<button type="button" class="outline" data-toggle="tp-details" aria-expanded="false" aria-controls="tp-details">See your touchpoints</button>` : ''}
+  </div>`;
+}
+
+function scaleTile(sc) {
+  if (sc === undefined) return '';                      // could not load: leave it out
+  if (sc === null) return `<div class="ov-tile"><h3>SCALE stage</h3><div class="ov-big"><span class="word">Not yet in SCALE</span></div><p>It looks like you are not enrolled in SCALE. You can enroll in our online platform to help your business grow at <a href="https://intake.purelansing.com" target="_blank" rel="noopener">intake.purelansing.com</a>.</p></div>`;
+  if (sc.stepIndex < 0 && !sc.allDone) return `<div class="ov-tile"><h3>SCALE stage</h3><div class="ov-big"><span class="word">${esc(sc.label)}</span></div></div>`;
+  const idx = sc.allDone ? sc.steps.length : sc.stepIndex;
+  const steps = sc.steps.map((name, i) => `<li class="${i < idx ? 'done' : i === idx ? 'current' : ''}"><span></span><span>${esc(name)}</span></li>`).join('');
+  const sub = sc.allDone ? 'all 5 stages' : `stage ${idx + 1} of ${sc.steps.length}`;
+  return `<div class="ov-tile"><h3>SCALE stage</h3>
+    <div class="ov-big"><span class="word">${esc(sc.label)}</span><span>${sub}</span></div>
+    <ol class="scale-steps" aria-label="SCALE stages">${steps}</ol>
+  </div>`;
+}
+
+function programsTile(progs) {
+  if (progs === undefined) return '';
+  if (!progs.length) return `<div class="ov-tile"><h3>Programs joined</h3><div class="ov-big"><strong>0</strong><span>programs</span></div><p>Programs you take part in will show here.</p></div>`;
+  const SHOW = 4;
+  const items = progs.map((p, i) => `<li${i >= SHOW ? ' hidden data-more="programs"' : ''}><span>${esc(p.name)}</span><span>${p.date ? esc(shortDate(p.date.slice(0, 7))) : ''}</span></li>`).join('');
+  return `<div class="ov-tile"><h3>Programs joined</h3>
+    <div class="ov-big"><strong>${progs.length}</strong><span>${progs.length === 1 ? 'program' : 'programs'}</span></div>
+    <ul class="prog-list">${items}</ul>
+    ${progs.length > SHOW ? `<button type="button" class="link" data-more-btn="programs">Show all ${progs.length}</button>` : ''}
+  </div>`;
+}
+
+function touchpointDetails(tp) {
+  if (!tp || !tp.total) return '';
+  const rows = ['meeting', 'call', 'email'].map(k => `<tr><td>${TYPE_LABELS[k]}s</td><td class="num">${tp.byType[k].last12}</td><td class="num">${tp.byType[k].total}</td></tr>`).join('');
+  const SHOW = 6;
+  const items = tp.items.map((it, i) => `<li${i >= SHOW ? ' hidden data-more="touchpoints"' : ''}><span>${TYPE_LABELS[it.type]}</span><span>${esc(shortDate(it.date))}</span></li>`).join('');
+  const more = tp.items.length > SHOW ? `<button type="button" class="link" data-more-btn="touchpoints">Show all ${tp.items.length}</button>` : '';
+  return `<div class="tp-details" id="tp-details" hidden>
+    <p class="lead">This count includes meetings, calls and emails with LEAP, deduplicated.</p>
+    <div><h3>By type</h3><table class="tp"><thead><tr><th>Type</th><th class="num">Past 12 months</th><th class="num">All time</th></tr></thead>
+      <tbody>${rows}<tr class="total"><td>Total</td><td class="num">${tp.last12}</td><td class="num">${tp.total}</td></tr></tbody></table></div>
+    <div><h3>Most recent</h3><ul class="tp-list">${items}</ul>${more}</div>
+  </div>`;
+}
+
+function overviewHtml(c) {
+  if (!c) return '';
+  const tiles = touchpointTile(c.touchpoints) + scaleTile(c.scale) + programsTile(c.programs);
+  if (!tiles) return '';
+  return `<section class="card overview" aria-labelledby="company-title">
+    <h2 id="company-title" tabindex="-1">${esc(c.name || 'Your business')}</h2>
+    <div class="ov-grid">${tiles}</div>
+    ${touchpointDetails(c.touchpoints)}
+  </section>`;
+}
+
+function bindToggles(root) {
+  root.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
+    const panel = document.getElementById(btn.dataset.toggle);
+    const open = panel.hidden;
+    panel.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    btn.textContent = open ? 'Hide your touchpoints' : 'See your touchpoints';
+  }));
+  root.querySelectorAll('[data-more-btn]').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll(`[data-more="${btn.dataset.moreBtn}"]`).forEach(el => { el.hidden = false; });
+    btn.remove();
+  }));
+}
+
+function render(data) {
+  // The server sends awards newest first; every award gets a full card.
+  const many = data.awards.length > 1;
+  let html = overviewHtml(data.company);
+  html += `<div class="results-head"><h2 id="results-title" class="awards-title" tabindex="-1">Your awards${many ? ` (${data.awards.length})` : ''}</h2>${many ? '<span>Most recent first</span>' : ''}</div>`;
+  html += data.awards.map((a, i) =>
+    `<article class="card award"><div class="award-top"><div>${metaHtml(a, many && i === 0)}<p class="award-name">${esc(a.awardName)}</p></div>${pillHtml(a)}</div>${bodyHtml(a)}</article>`
+  ).join('');
+  html += `<p class="contact">Questions? Contact ${esc(data.contact.name)} at <a href="mailto:${esc(data.contact.email)}">${esc(data.contact.email)}</a>.</p>`;
+  return html;
+}
+
+const messageCard = text => `<div class="card empty"><p class="notice">${text}</p></div>`;
+
+$('#lookup').addEventListener('submit', async e => {
+  e.preventDefault();
+  const companyName = $('#company').value.trim();
+  const email = $('#email').value.trim();
+  const out = $('#results');
+  if (!companyName || !email) { out.innerHTML = messageCard('Please enter your company name and email address.'); return; }
+  const btn = $('#go');
+  btn.disabled = true; btn.querySelector('.label').textContent = 'Checking';
+  try {
+    const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyName, email }) });
+    const data = await res.json();
+    if (!res.ok) {
+      out.innerHTML = messageCard(esc(data.error || 'Something went wrong. Please try again.'));
+    } else if (!data.found) {
+      out.innerHTML = messageCard(`We couldn't find an award that matches. Check the spelling of your company name and use the email address you applied with. Still stuck? Email <a href="mailto:${esc(data.contact?.email)}">${esc(data.contact?.email)}</a> and we'll help.`);
+    } else {
+      out.innerHTML = render(data);
+      bindToggles(out);
+      ($('#company-title') || $('#results-title'))?.focus({ preventScroll: true });
+      out.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    }
+  } catch {
+    out.innerHTML = messageCard("We couldn't reach our records right now. Please try again in a few minutes.");
+  } finally {
+    btn.disabled = false; btn.querySelector('.label').textContent = 'Check status';
+  }
+});
+</script>
+</body>
+</html>
